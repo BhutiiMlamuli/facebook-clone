@@ -11,18 +11,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 session_start();
 
-// Database configuration
-$host = 'localhost';
+// Database configuration for Codespaces
+$host = '127.0.0.1';  // Use 127.0.0.1 instead of localhost
 $dbname = 'socialbook';
 $username = 'root';
-$password = '';
+$password = '';  // Empty password for default MySQL in Codespaces
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 } catch(PDOException $e) {
-    echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
+    error_log("Database connection failed: " . $e->getMessage());
+    echo json_encode(['error' => 'Database connection failed. Please check your configuration.']);
     exit();
 }
 ?>

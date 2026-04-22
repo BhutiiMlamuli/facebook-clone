@@ -1,0 +1,11 @@
+{
+    "name": "socialbook/social-media",
+    "description": "Facebook-like social media platform",
+    "type": "project",
+    "require": {
+        "php": ">=7.4"
+    },
+    "config": {
+        "platform-check": false
+    }
+}
