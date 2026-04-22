@@ -1,14 +1,19 @@
 CREATE DATABASE IF NOT EXISTS socialbook;
 USE socialbook;
 
+-- Users table
 CREATE TABLE users (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
     profile_pic VARCHAR(255) DEFAULT 'profile-pic.png',
+    cover_pic VARCHAR(255) DEFAULT NULL,
+    bio TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Posts table
 CREATE TABLE posts (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
@@ -18,6 +23,7 @@ CREATE TABLE posts (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Comments table
 CREATE TABLE comments (
     id INT PRIMARY KEY AUTO_INCREMENT,
     post_id INT NOT NULL,
@@ -28,6 +34,7 @@ CREATE TABLE comments (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Likes table
 CREATE TABLE likes (
     id INT PRIMARY KEY AUTO_INCREMENT,
     post_id INT NOT NULL,
@@ -38,13 +45,48 @@ CREATE TABLE likes (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Insert a default user (John Nicholson)
-INSERT INTO users (name, email) VALUES ('John Nicholson', 'john@socialbook.com');
+-- Stories (expire after 24h)
+CREATE TABLE stories (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    image VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 
--- Insert sample posts (matching your static content)
-INSERT INTO posts (user_id, content, image) VALUES
-(1, 'Subscribe @Easy Tutorials YouTube Channel to watch more videos on website development and UI designs. #EasyTutorials #YouTubeChannel', 'images/feed-image-1.png'),
-(1, 'Like and share this with friends, tag @Easy Tutorials facebook page on your post. Ask your doubts in the comments. #EasyTutorials #YouTubeChannel', 'images/feed-image-2.png'),
-(1, 'We observe that all attributes on the right-hand side of the functional dependencies are prime attributes #EasyTutorials #YouTubeChannel', 'images/feed-image-3.png'),
-(1, 'Eliminates Redundancy: 3NF helps to remove unnecessary duplication of data... #EasyTutorials #YouTubeChannel', 'images/feed-image-4.png'),
-(1, 'Lossless Decomposition: When decomposing a relation to achieve 3NF, the decomposition should be lossless... #EasyTutorials #YouTubeChannel', 'images/feed-image-5.png');
+-- Events
+CREATE TABLE events (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    event_date DATE NOT NULL,
+    location VARCHAR(200),
+    image VARCHAR(255),
+    created_by INT,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- Friend requests
+CREATE TABLE friend_requests (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    sender_id INT NOT NULL,
+    receiver_id INT NOT NULL,
+    status ENUM('pending', 'accepted', 'declined') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_id) REFERENCES users(id),
+    FOREIGN KEY (receiver_id) REFERENCES users(id),
+    UNIQUE KEY (sender_id, receiver_id)
+);
+
+-- Insert sample data
+INSERT INTO users (name, email, password) VALUES 
+('John Doe', 'john@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi'),
+('Jane Smith', 'jane@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi');
+
+INSERT INTO posts (user_id, content) VALUES 
+(1, 'Welcome to SocialBook! This is my first post. 🎉'),
+(2, 'Excited to be part of this amazing community! 💫');
+
+INSERT INTO events (title, description, event_date, location) VALUES 
+('Tech Meetup 2024', 'Annual tech conference', '2024-12-15', 'San Francisco, CA'),
+('Web Development Workshop', 'Learn modern web dev', '2024-12-20', 'Online');

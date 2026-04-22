@@ -1,29 +1,28 @@
 <?php
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit(0);
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
 session_start();
 
-// For Codespaces, use localhost and default root (no password)
+// Database configuration
 $host = 'localhost';
 $dbname = 'socialbook';
-$user = 'root';
-$pass = '';
+$username = 'root';
+$password = '';
 
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $user, $pass);
+    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 } catch(PDOException $e) {
-    echo json_encode(['error' => 'Database connection failed']);
-    exit;
-}
-
-// We'll use a fixed user ID (John Nicholson) – no login needed
-if (!isset($_SESSION['user_id'])) {
-    $_SESSION['user_id'] = 1;
+    echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
+    exit();
 }
 ?>

@@ -1,271 +1,552 @@
-// ========== ORIGINAL FUNCTIONS (UNCHANGED) ==========
-var settingsmenu = document.querySelector(".settings-menu");
-var darkBtn = document.getElementById("dark-btn");
+// DOM Elements
+const settingsMenu = document.getElementById('settingsMenu');
+const darkBtn = document.getElementById('dark-btn');
+const postsContainer = document.getElementById('postsContainer');
+const loadMoreBtn = document.getElementById('loadMoreBtn');
+const storyGallery = document.getElementById('storyGallery');
+const eventsContainer = document.getElementById('eventsContainer');
+const writePostContainer = document.getElementById('writePostContainer');
+const submitPostBtn = document.getElementById('submitPostBtn');
+const postContent = document.getElementById('postContent');
+const authModal = document.getElementById('authModal');
+const authForm = document.getElementById('authForm');
+const authName = document.getElementById('authName');
+const authEmail = document.getElementById('authEmail');
+const authPassword = document.getElementById('authPassword');
+const modalTitle = document.getElementById('modalTitle');
+const authSwitch = document.getElementById('authSwitch');
+const authMessage = document.getElementById('authMessage');
+const navProfileImg = document.getElementById('navProfileImg');
+const settingsUserName = document.getElementById('settingsUserName');
+const settingsProfileImg = document.getElementById('settingsProfileImg');
+const postProfileImg = document.getElementById('postProfileImg');
+const postUserName = document.getElementById('postUserName');
+const logoutBtn = document.getElementById('logoutBtn');
 
-function settingsMenuToggle(){
-    settingsmenu.classList.toggle("settings-menu-height");
-}
+let currentPage = 1;
+let isLoading = false;
+let isLoggedIn = false;
+let currentUser = null;
 
-darkBtn.onclick = function(){
-    darkBtn.classList.toggle("dark-btn-on");
-    document.body.classList.toggle("dark-theme");
-    if(localStorage.getItem("theme") == "light"){
-        localStorage.setItem("theme", "dark");
-    } else {
-        localStorage.setItem("theme", "light"); 
+// Theme Management
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-theme');
+        darkBtn.classList.add('dark-btn-on');
     }
 }
 
-if(localStorage.getItem("theme") == "light"){
-    darkBtn.classList.remove("dark-btn-on");
-    document.body.classList.remove("dark-theme");
-} else if(localStorage.getItem("theme")== "dark"){
-    darkBtn.classList.add("dark-btn-on");
-    document.body.classList.add("dark-theme");
-} else {
-    localStorage.setItem("theme", "light");
+function toggleTheme() {
+    document.body.classList.toggle('dark-theme');
+    darkBtn.classList.toggle('dark-btn-on');
+    const theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
+    localStorage.setItem('theme', theme);
 }
 
-// ========== NEW BACKEND DYNAMICS ==========
-let currentPage = 1;
-let isLoading = false;
-const postsContainer = document.querySelector(".main-content");
-const loadMoreBtn = document.querySelector(".load-more-btn");
-const writePostTextarea = document.querySelector(".write-post-container textarea");
-const submitPostArea = document.querySelector(".add-post-links");
+function toggleSettingsMenu() {
+    settingsMenu.classList.toggle('show');
+}
 
-// Remove static posts from HTML (they will be replaced by dynamic ones)
-function clearStaticPosts() {
-    const allPostContainers = document.querySelectorAll(".post-container");
-    allPostContainers.forEach(container => {
-        if (!container.closest(".write-post-container")) {
-            container.remove();
+// Close settings menu when clicking outside
+document.addEventListener('click', function(e) {
+    if (!settingsMenu.contains(e.target) && !e.target.closest('.nav-user-icon')) {
+        settingsMenu.classList.remove('show');
+    }
+});
+
+// Modal functions
+function openModal() {
+    authModal.style.display = 'flex';
+}
+
+function closeModal() {
+    authModal.style.display = 'none';
+}
+
+// Authentication
+async function checkLogin() {
+    try {
+        const response = await fetch('api/check_session.php');
+        const data = await response.json();
+        
+        if (data.loggedIn) {
+            isLoggedIn = true;
+            currentUser = data.user;
+            closeModal();
+            writePostContainer.style.display = 'block';
+            updateUserUI();
+            loadPosts();
+            loadStories();
+            loadEvents();
+        } else {
+            isLoggedIn = false;
+            writePostContainer.style.display = 'none';
+            openModal();
         }
-    });
+    } catch (error) {
+        console.error('Check login error:', error);
+    }
 }
 
-// Load posts from API
+function updateUserUI() {
+    if (currentUser) {
+        settingsUserName.textContent = currentUser.name;
+        postUserName.textContent = currentUser.name;
+        
+        const profilePic = currentUser.profile_pic || 'images/profile-pic.png';
+        navProfileImg.src = profilePic;
+        settingsProfileImg.src = profilePic;
+        postProfileImg.src = profilePic;
+    }
+}
+
+// Auth form submission
+authSwitch.addEventListener('click', (e) => {
+    e.preventDefault();
+    const isLogin = authName.style.display === 'none';
+    
+    if (isLogin) {
+        // Switch to register
+        modalTitle.textContent = 'Register to SocialBook';
+        authName.style.display = 'block';
+        authSwitch.textContent = 'Back to Login';
+        authSubmitBtn.textContent = 'Register';
+        authMessage.textContent = '';
+    } else {
+        // Switch to login
+        modalTitle.textContent = 'Login to SocialBook';
+        authName.style.display = 'none';
+        authSwitch.textContent = 'Create an account';
+        authSubmitBtn.textContent = 'Login';
+        authMessage.textContent = '';
+    }
+});
+
+authForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+    const isLogin = authName.style.display === 'none';
+    
+    if (!email || !password) {
+        authMessage.textContent = 'Please fill in all fields';
+        authMessage.style.color = 'red';
+        return;
+    }
+    
+    if (!isLogin) {
+        const name = authName.value.trim();
+        if (!name) {
+            authMessage.textContent = 'Please enter your name';
+            authMessage.style.color = 'red';
+            return;
+        }
+        
+        // Register
+        try {
+            const response = await fetch('api/register.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, password })
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                authMessage.textContent = data.message;
+                authMessage.style.color = 'green';
+                setTimeout(() => {
+                    // Switch to login
+                    modalTitle.textContent = 'Login to SocialBook';
+                    authName.style.display = 'none';
+                    authSwitch.textContent = 'Create an account';
+                    authSubmitBtn.textContent = 'Login';
+                    authEmail.value = email;
+                    authPassword.value = '';
+                    authMessage.textContent = '';
+                }, 2000);
+            } else {
+                authMessage.textContent = data.message;
+                authMessage.style.color = 'red';
+            }
+        } catch (error) {
+            authMessage.textContent = 'Registration failed. Please try again.';
+            authMessage.style.color = 'red';
+        }
+    } else {
+        // Login
+        try {
+            const response = await fetch('api/login.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                isLoggedIn = true;
+                currentUser = data.user;
+                closeModal();
+                writePostContainer.style.display = 'block';
+                updateUserUI();
+                loadPosts();
+                loadStories();
+                loadEvents();
+            } else {
+                authMessage.textContent = data.message;
+                authMessage.style.color = 'red';
+            }
+        } catch (error) {
+            authMessage.textContent = 'Login failed. Please try again.';
+            authMessage.style.color = 'red';
+        }
+    }
+});
+
+// Logout
+logoutBtn.addEventListener('click', async () => {
+    try {
+        await fetch('api/logout.php');
+        isLoggedIn = false;
+        currentUser = null;
+        location.reload();
+    } catch (error) {
+        console.error('Logout error:', error);
+    }
+});
+
+// Load Posts
 async function loadPosts(reset = false) {
     if (reset) {
         currentPage = 1;
-        clearStaticPosts();
-        const existingDynamic = document.querySelectorAll(".dynamic-post");
-        existingDynamic.forEach(el => el.remove());
+        postsContainer.innerHTML = '';
     }
+    
     if (isLoading) return;
     isLoading = true;
-
+    
     try {
-        const res = await fetch(`api/get_posts.php?page=${currentPage}`);
-        const posts = await res.json();
+        const response = await fetch(`api/get_posts.php?page=${currentPage}`);
+        const posts = await response.json();
         
         if (posts.length === 0 && currentPage === 1) {
-            const noPostsMsg = document.createElement("p");
-            noPostsMsg.textContent = "No posts yet. Write something!";
-            noPostsMsg.style.textAlign = "center";
-            noPostsMsg.style.margin = "20px";
-            postsContainer.insertBefore(noPostsMsg, loadMoreBtn);
-            loadMoreBtn.style.display = "none";
+            postsContainer.innerHTML = '<div class="post-container"><p style="text-align:center;">No posts yet. Be the first to share something!</p></div>';
+            loadMoreBtn.style.display = 'none';
         } else {
             posts.forEach(post => appendPost(post));
-            if (posts.length < 5) loadMoreBtn.style.display = "none";
-            else loadMoreBtn.style.display = "block";
+            loadMoreBtn.style.display = posts.length === 5 ? 'block' : 'none';
         }
-    } catch (err) {
-        console.error("Failed to load posts:", err);
+    } catch (error) {
+        console.error('Load posts error:', error);
     }
+    
     isLoading = false;
 }
 
-// Create a post element (matching original structure)
 function appendPost(post) {
-    const postDiv = document.createElement("div");
-    postDiv.className = "post-container dynamic-post";
-    postDiv.setAttribute("data-post-id", post.id);
+    const postDiv = document.createElement('div');
+    postDiv.className = 'post-container';
+    postDiv.dataset.postId = post.id;
     
-    const likeImg = post.liked_by_user ? "like-blue.png" : "like.png";
-    const profilePic = post.user_avatar || "profile-pic.png";
+    const likeClass = post.liked_by_user ? 'liked' : '';
+    const likeIcon = post.liked_by_user ? 'like-blue.png' : 'like.png';
     
     postDiv.innerHTML = `
         <div class="post-row">
             <div class="user-profile">
-                <img src="images/${profilePic}">
+                <img src="images/${post.user_avatar}" alt="${escapeHtml(post.name)}">
                 <div>
                     <p>${escapeHtml(post.name)}</p>
-                    <span>${new Date(post.created_at).toLocaleString()}</span>
+                    <span>${formatDate(post.created_at)}</span>
                 </div>
             </div>
-            <a href="#"><img src="images/more.png"></a>
+            <i class="fas fa-ellipsis-h"></i>
         </div>
-        <p class="post-text">${escapeHtml(post.content)}</p>
-        ${post.image ? `<img src="${post.image}" class="post-img">` : ''}
+        <p class="post-text">${formatPostContent(escapeHtml(post.content))}</p>
+        ${post.image ? `<img src="${post.image}" class="post-img" alt="Post image">` : ''}
         <div class="post-row">
             <div class="activity-icons">
-                <div class="like-btn" data-post-id="${post.id}">
-                    <img src="images/${likeImg}">
+                <div class="like-btn ${likeClass}" data-post-id="${post.id}">
+                    <img src="images/${likeIcon}" alt="Like">
                     <span class="like-count">${post.like_count}</span>
                 </div>
                 <div class="comment-toggle" data-post-id="${post.id}">
-                    <img src="images/comments.png">
+                    <img src="images/comments.png" alt="Comment">
                     <span class="comment-count">${post.comment_count}</span>
                 </div>
-                <div><img src="images/share.png"> Share</div>
-            </div>
-            <div class="post-user-icons">
-                <img src="images/profile-pic.png"><a href="#"><img src="images/arrow.png"></a>
+                <div class="share-btn">
+                    <img src="images/share.png" alt="Share">
+                    <span>Share</span>
+                </div>
             </div>
         </div>
-        <div class="comments-section" style="display:none; margin-top:15px;"></div>
+        <div class="comments-section" style="display:none;"></div>
     `;
     
-    // Insert before Load More button
-    postsContainer.insertBefore(postDiv, loadMoreBtn);
+    postsContainer.appendChild(postDiv);
     
-    // Attach like event
-    const likeBtn = postDiv.querySelector(".like-btn");
-    likeBtn.addEventListener("click", () => likePost(post.id, likeBtn));
+    // Attach event listeners
+    const likeBtn = postDiv.querySelector('.like-btn');
+    likeBtn.addEventListener('click', () => likePost(post.id, likeBtn));
     
-    // Attach comment toggle
-    const commentToggle = postDiv.querySelector(".comment-toggle");
-    const commentsSection = postDiv.querySelector(".comments-section");
-    commentToggle.addEventListener("click", () => toggleComments(post.id, commentsSection));
+    const commentToggle = postDiv.querySelector('.comment-toggle');
+    const commentsSection = postDiv.querySelector('.comments-section');
+    commentToggle.addEventListener('click', () => toggleComments(post.id, commentsSection));
 }
 
-// Like / Unlike
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000);
+    
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
+    
+    return date.toLocaleDateString();
+}
+
+function formatPostContent(content) {
+    // Simple hashtag and mention detection
+    content = content.replace(/#(\w+)/g, '<a href="#">#$1</a>');
+    content = content.replace(/@(\w+)/g, '<a href="#">@$1</a>');
+    return content;
+}
+
+// Like Post
 async function likePost(postId, btnElement) {
+    if (!isLoggedIn) {
+        alert('Please login to like posts');
+        openModal();
+        return;
+    }
+    
     try {
-        const res = await fetch("api/like_post.php", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+        const response = await fetch('api/like_post.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ post_id: postId })
         });
-        const data = await res.json();
+        const data = await response.json();
+        
         if (data.success) {
-            const img = btnElement.querySelector("img");
-            const countSpan = btnElement.querySelector(".like-count");
-            img.src = `images/${data.liked ? "like-blue.png" : "like.png"}`;
-            countSpan.innerText = data.count;
+            const img = btnElement.querySelector('img');
+            const countSpan = btnElement.querySelector('.like-count');
+            
+            img.src = `images/${data.liked ? 'like-blue.png' : 'like.png'}`;
+            countSpan.textContent = data.count;
+            
+            if (data.liked) {
+                btnElement.classList.add('liked');
+            } else {
+                btnElement.classList.remove('liked');
+            }
         }
-    } catch (err) {
-        console.error(err);
+    } catch (error) {
+        console.error('Like error:', error);
     }
 }
 
-// Show / Load comments
+// Comments
 async function toggleComments(postId, sectionDiv) {
-    if (sectionDiv.style.display === "none") {
-        sectionDiv.style.display = "block";
-        if (sectionDiv.innerHTML === "") {
+    if (sectionDiv.style.display === 'none') {
+        sectionDiv.style.display = 'block';
+        
+        if (sectionDiv.innerHTML === '') {
             try {
-                const res = await fetch(`api/get_comments.php?post_id=${postId}`);
-                const comments = await res.json();
+                const response = await fetch(`api/get_comments.php?post_id=${postId}`);
+                const comments = await response.json();
+                
                 if (comments.length === 0) {
-                    sectionDiv.innerHTML = "<p>No comments yet.</p>";
+                    sectionDiv.innerHTML = '<p style="text-align:center; color:var(--text-secondary);">No comments yet. Be the first to comment!</p>';
                 } else {
-                    let html = `<div class="comments-list">`;
-                    comments.forEach(c => {
+                    let html = '<div class="comments-list">';
+                    comments.forEach(comment => {
                         html += `
-                            <div class="user-profile" style="margin:10px 0;">
-                                <img src="images/${c.user_avatar}" style="width:30px; height:30px;">
-                                <div>
-                                    <p style="font-size:13px;">${escapeHtml(c.name)}</p>
-                                    <small>${escapeHtml(c.comment)}</small>
+                            <div class="comment-item">
+                                <img src="images/${comment.user_avatar}" alt="${escapeHtml(comment.name)}">
+                                <div class="comment-content">
+                                    <div class="comment-name">${escapeHtml(comment.name)}</div>
+                                    <div class="comment-text">${escapeHtml(comment.comment)}</div>
+                                    <small>${formatDate(comment.created_at)}</small>
                                 </div>
                             </div>
                         `;
                     });
-                    html += `</div><div class="add-comment"><textarea placeholder="Write a comment..." rows="2" style="width:100%; margin-top:10px;"></textarea><button class="submit-comment" data-post-id="${postId}">Post</button></div>`;
+                    html += `</div>`;
+                    html += `
+                        <div class="add-comment">
+                            <textarea placeholder="Write a comment..." rows="2"></textarea>
+                            <button class="submit-comment" data-post-id="${postId}">Post</button>
+                        </div>
+                    `;
                     sectionDiv.innerHTML = html;
-                    const submitBtn = sectionDiv.querySelector(".submit-comment");
-                    submitBtn.addEventListener("click", () => addComment(postId, sectionDiv));
+                    
+                    const submitBtn = sectionDiv.querySelector('.submit-comment');
+                    submitBtn.addEventListener('click', () => addComment(postId, sectionDiv));
                 }
-            } catch (err) { console.error(err); }
+            } catch (error) {
+                console.error('Load comments error:', error);
+            }
         }
     } else {
-        sectionDiv.style.display = "none";
+        sectionDiv.style.display = 'none';
     }
 }
 
-// Add a comment
 async function addComment(postId, sectionDiv) {
-    const textarea = sectionDiv.querySelector("textarea");
+    if (!isLoggedIn) {
+        alert('Please login to comment');
+        openModal();
+        return;
+    }
+    
+    const textarea = sectionDiv.querySelector('textarea');
     const comment = textarea.value.trim();
+    
     if (!comment) return;
+    
     try {
-        const res = await fetch("api/add_comment.php", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+        const response = await fetch('api/add_comment.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ post_id: postId, comment })
         });
-        const data = await res.json();
+        const data = await response.json();
+        
         if (data.success) {
-            textarea.value = "";
-            // Refresh comments section
-            sectionDiv.innerHTML = "";
-            sectionDiv.style.display = "none";
+            textarea.value = '';
             toggleComments(postId, sectionDiv);
-            // Increase comment count on the post
-            const commentCountSpan = document.querySelector(`.post-container[data-post-id="${postId}"] .comment-count`);
-            if (commentCountSpan) {
-                let count = parseInt(commentCountSpan.innerText);
-                commentCountSpan.innerText = count + 1;
-            }
+            
+            // Update comment count
+            const postDiv = document.querySelector(`.post-container[data-post-id="${postId}"]`);
+            const commentCountSpan = postDiv.querySelector('.comment-count');
+            commentCountSpan.textContent = parseInt(commentCountSpan.textContent) + 1;
         } else {
             alert(data.message);
         }
-    } catch (err) { console.error(err); }
+    } catch (error) {
+        console.error('Add comment error:', error);
+    }
 }
 
-// Create a new post
-function setupPostCreation() {
-    if (!submitPostArea) return;
-    const postButton = document.createElement("button");
-    postButton.textContent = "Post";
-    postButton.className = "load-more-btn";
-    postButton.style.background = "#1876f2";
-    postButton.style.color = "white";
-    postButton.style.border = "none";
-    postButton.style.marginLeft = "10px";
-    submitPostArea.appendChild(postButton);
-    
-    postButton.addEventListener("click", async () => {
-        const content = writePostTextarea.value.trim();
-        if (!content) return alert("Please write something");
+// Create Post
+if (submitPostBtn) {
+    submitPostBtn.addEventListener('click', async () => {
+        if (!isLoggedIn) {
+            alert('Please login to create posts');
+            openModal();
+            return;
+        }
+        
+        const content = postContent.value.trim();
+        if (!content) {
+            alert('Please write something before posting');
+            return;
+        }
+        
         try {
-            const res = await fetch("api/create_post.php", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+            const response = await fetch('api/create_post.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content })
             });
-            const data = await res.json();
+            const data = await response.json();
+            
             if (data.success) {
-                writePostTextarea.value = "";
-                loadPosts(true); // reload all posts
+                postContent.value = '';
+                loadPosts(true);
             } else {
                 alert(data.message);
             }
-        } catch (err) { console.error(err); }
+        } catch (error) {
+            console.error('Create post error:', error);
+            alert('Failed to create post. Please try again.');
+        }
     });
 }
 
-// Helper: escape HTML to prevent XSS
+// Load Stories
+async function loadStories() {
+    try {
+        const response = await fetch('api/get_stories.php');
+        const stories = await response.json();
+        
+        storyGallery.innerHTML = '';
+        
+        if (isLoggedIn) {
+            const addStory = document.createElement('div');
+            addStory.className = 'story';
+            addStory.style.backgroundImage = 'linear-gradient(transparent, rgba(0,0,0,0.5)), url(images/status-1.png)';
+            addStory.innerHTML = '<img src="images/upload.png" alt="Add Story"><p>Post Story</p>';
+            storyGallery.appendChild(addStory);
+        }
+        
+        stories.forEach(story => {
+            const storyDiv = document.createElement('div');
+            storyDiv.className = 'story';
+            storyDiv.style.backgroundImage = `linear-gradient(transparent, rgba(0,0,0,0.5)), url(images/status-2.png)`;
+            storyDiv.innerHTML = `<img src="images/${story.user_avatar}" alt="${escapeHtml(story.name)}"><p>${escapeHtml(story.name)}</p>`;
+            storyGallery.appendChild(storyDiv);
+        });
+    } catch (error) {
+        console.error('Load stories error:', error);
+    }
+}
+
+// Load Events
+async function loadEvents() {
+    try {
+        const response = await fetch('api/get_events.php');
+        const events = await response.json();
+        
+        eventsContainer.innerHTML = '';
+        events.forEach(event => {
+            const eventDiv = document.createElement('div');
+            eventDiv.className = 'event';
+            eventDiv.innerHTML = `
+                <div class="left-event">
+                    <h3>${new Date(event.event_date).getDate()}</h3>
+                    <span>${new Date(event.event_date).toLocaleString('default', { month: 'short' })}</span>
+                </div>
+                <div class="right-event">
+                    <h4>${escapeHtml(event.title)}</h4>
+                    <p><i class="fas fa-map-marker-alt"></i> ${escapeHtml(event.location)}</p>
+                    <a href="#">More Info</a>
+                </div>
+            `;
+            eventsContainer.appendChild(eventDiv);
+        });
+    } catch (error) {
+        console.error('Load events error:', error);
+    }
+}
+
+// Load More
+if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', () => {
+        currentPage++;
+        loadPosts();
+    });
+}
+
+// Helper Functions
 function escapeHtml(str) {
-    if (!str) return "";
-    return str.replace(/[&<>]/g, function(m) {
-        if (m === "&") return "&amp;";
-        if (m === "<") return "&lt;";
-        if (m === ">") return "&gt;";
-        return m;
-    });
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
 }
 
-// Load More button event
-loadMoreBtn.addEventListener("click", () => {
-    currentPage++;
-    loadPosts();
-});
+// Initialize
+initTheme();
+checkLogin();
 
-// Initialise
-clearStaticPosts();
-loadPosts();
-setupPostCreation();
+// Close modal when clicking outside
+window.onclick = function(event) {
+    if (event.target === authModal) {
+        closeModal();
+    }
+}
