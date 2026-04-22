@@ -2,7 +2,7 @@
 require_once 'config.php';
 
 $post_id = (int)$_GET['post_id'];
-$stmt = $pdo->prepare("SELECT c.*, u.name, u.profile_pic FROM comments c JOIN users u ON c.user_id = u.id WHERE c.post_id = ? ORDER BY c.created_at ASC");
+$stmt = $pdo->prepare("SELECT c.comment, c.created_at, u.name, u.profile_pic FROM comments c JOIN users u ON c.user_id = u.id WHERE c.post_id = ? ORDER BY c.created_at ASC");
 $stmt->execute([$post_id]);
 $comments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

@@ -16,7 +16,7 @@ $sql = "SELECT p.*, u.name, u.profile_pic,
 $stmt = $pdo->query($sql);
 $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$userId = $_SESSION['user_id'] ?? 0;
+$userId = $_SESSION['user_id'];
 foreach ($posts as &$post) {
     $stmt = $pdo->prepare("SELECT 1 FROM likes WHERE post_id = ? AND user_id = ?");
     $stmt->execute([$post['id'], $userId]);
